@@ -172,6 +172,7 @@ wandb/
 # data/*
 # data/database/*
 data/database_cache/*
+data/raw/
 
 # Don't Push Notebooks
 notebooks/*
