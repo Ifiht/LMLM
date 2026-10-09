@@ -2,7 +2,7 @@
 
 SAVE_DIR=./output/annotation
 ANNOTATOR=llama
-MODEL_ID=kilian-group/LMLM-Annotator
+MODEL_ID=../weights/LMLM-Annotator
 
 PROMPT_ID=llama-v6.1
 FORMAT=json
