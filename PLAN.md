@@ -9,7 +9,7 @@ LMLM-2026 — Limited Memory Language Model, full pipeline rebuilt on enwiki-202
     environment     COMPLETE     lmlm conda env; matches requirements.lock.txt
     gpu             OPERATIONAL  1x RTX 3090 24GB, driver 580.178.04; CUDA verified
     corpus          COMPLETE     data/raw/enwiki-20260901; 71 files, 48GB; md5 verified
-    annotator       IN PROGRESS  ../weights/LMLM-Annotator (download)
+    annotator       COMPLETE     ../weights/LMLM-Annotator
     annotate.sh     OPEN         MODEL_ID -> ../weights/LMLM-Annotator
     converter       NOT STARTED  dump -> {id, text} loader
     factscore       NOT STARTED  pip install factscore --no-deps
@@ -35,12 +35,3 @@ LMLM-2026 — Limited Memory Language Model, full pipeline rebuilt on enwiki-202
     M8  Evaluate: perplexity, NLU, T-REx, FactScore, TOFU.            3-5d
         Exit: results table, LMLM vs. baseline.
 
-    M5 and M7 are critical. 382M model follows 176M results; not on path.
-
-### RISKS
-    HIGH    Annotation throughput. M2 projects M5 > 6wk: annotate a subset
-            or add GPUs.
-    HIGH    Database memory. fp32 index ~84GB vs 46GB RAM: M6 builds a
-            compressed index.
-    MEDIUM  Text-format drift. Controlled by M3/M4 side-by-side checks.
-    MEDIUM  Quantization fidelity. Sub-bf16 must pass M2 before M5.
