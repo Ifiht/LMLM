@@ -16,7 +16,7 @@ LMLM-2026 — Limited Memory Language Model, full pipeline rebuilt on enwiki-202
     M5-M8           NOT STARTED  annotation, database, pretraining, evaluation
 
 ### CRITICAL PATH
-    M1  Point annotate_annotator.sh at ../weights/LMLM-Annotator.     <1h
+    M1  Point scripts/annotate/annotate_annotator.sh at ../weights/LMLM-Annotator
         Exit: model loads from local path.
     M2  Annotator check on dwiki-eval1k (dolmino format).               1d
         Exit: dblookup call rate and verbatim-copy fidelity match the
