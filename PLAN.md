@@ -35,17 +35,32 @@ LMLM-2026 — Limited Memory Language Model, full pipeline rebuilt on enwiki-202
         Exit: dblookup call rate and verbatim-copy fidelity match the
         reference; tokens/sec measured for bf16 and fp8.
 
-    M3  Turn the raw dump into plain-text documents the annotator    1-2d
-        can read; set aside held-out eval docs.
+    M3  Split every article into plain-text chunks along its own     2-3d
+        section structure, sized to fit one annotator call; set aside
+        held-out eval articles.
         1. CREATE_FILE sources/wiki_to_jsonl.py
-           data/raw/enwiki-20260901/*.bz2 -> data/raw/enwiki-20260901.jsonl
-           ({id, text}, mwparserfromhell); writes held-out ids to
-           data/ids/enwiki-heldout-ids.json; includes assert self-check
-           against M2 dolmino texts
-        2. RUN sources/wiki_to_jsonl.py
+           Purpose: turn the raw dump into annotator input chunks that
+           follow article structure instead of truncating articles.
+           Function: stream data/raw/enwiki-20260901/*.bz2 (articles only,
+           redirects skipped); parse wikitext with mwparserfromhell; split
+           at section headings (get_sections); merge adjacent small
+           sections up to the chunk token limit; split oversize sections
+           at paragraph, then sentence boundaries; strip markup to plain
+           text; prefix every chunk with the article title ("Title\n\nBody",
+           dolmino format); measure sizes with the annotator tokenizer.
+           Writes {id: "<page_id>_chunk<n>", text} rows to
+           data/raw/enwiki-20260901.jsonl and held-out article ids (all
+           chunks of an article on one side) to
+           data/ids/enwiki-heldout-ids.json. Assert self-check: no chunk
+           exceeds the limit; chunks of an article reassemble its full text.
+           Chunk token limit derives from max_model_len (proposal pending).
+        2. RUN python sources/wiki_to_jsonl.py
         3. EDIT src/lmlm/annotate/dataloader.py
-           register loader for data/raw/enwiki-20260901.jsonl
-        Exit: text format matches dolmino side by side; assert check passes.
+           register an "enwiki" loader that reads
+           data/raw/enwiki-20260901.jsonl into (texts, ids), without
+           truncate_sample_length
+        Exit: no chunk over the limit; spot-checked splits fall on section
+        or paragraph boundaries; chunk format matches dolmino side by side.
 
     M4  Annotate 1k of our docs and confirm quality holds.              1d
         1. CREATE_FILE data/ids/enwiki-pilot1k-ids.json

@@ -93,8 +93,19 @@ if __name__=="__main__":
         if args.postprocess:
             annotated_batch = annotator.postprocess(annotated_batch)
 
+        # log texts the annotator dropped instead of truncating; they stay unannotated
+        dropped = getattr(annotator, "dropped", [])
+        if dropped:
+            dropped_path = os.path.join(args.save_dir, f"{save_name}.dropped.jsonl")
+            with open(dropped_path, "a") as f:
+                for d in dropped:
+                    f.write(json.dumps({"original_dataset_ids": text_ids_lst[d["index"]], **d}) + "\n")
+            print(f"Dropped {len(dropped)} texts; see {dropped_path}")
+
         # add annotated data to data manager
         for annotated_text, ids, text in zip(annotated_batch, text_ids_lst, batch):
+            if annotated_text is None:
+                continue
             manager.add_example(
                 Example(
                     annotated_text=annotated_text,

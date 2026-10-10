@@ -192,3 +192,6 @@ cache/*
 
 # ignore the environment.yml
 environment.yml
+
+# Generated results
+/output/

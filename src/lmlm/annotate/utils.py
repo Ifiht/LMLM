@@ -5,13 +5,6 @@ from collections import defaultdict, Counter
 from typing import List, Tuple
 
 
-def truncate_sample_length(example, max_length=1024):
-    words = example['text'].split()
-    if len(words) > max_length:
-        example['text'] = ' '.join(words[:max_length])
-    return example
-
-
 def add_shared_context_ids(dataset):
     context_to_ids = defaultdict(list)
     for ex in dataset:
@@ -28,26 +21,6 @@ def chunk_wiki_text(texts: List[str], ids: List[str], max_len: int = 750) -> Tup
             chunks.append(chunk)
             chunk_ids.append(f"{pid}_chunk{i // max_len}")
     return chunks, chunk_ids
-
-def truncate_prompt(prompt: str, tokenizer, max_tokens: int = 2048) -> str:
-    """
-    Truncates the input prompt to ensure it does not exceed the max token limit.
-
-    Args:
-        prompt (str): The input prompt text.
-        tokenizer: The tokenizer used for tokenizing the prompt.
-        max_tokens (int, optional): The maximum allowed token length. Defaults to 2048.
-
-    Returns:
-        str: The truncated prompt.
-    """
-    tokens = tokenizer.encode(prompt, add_special_tokens=False)
-
-    if len(tokens) > max_tokens:
-        tokens = tokens[:max_tokens]  # Truncate to max length
-
-    return tokenizer.decode(tokens, skip_special_tokens=True)
-
 
 import re
 

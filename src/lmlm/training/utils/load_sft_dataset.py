@@ -68,7 +68,9 @@ def format_chat(data, tokenizer, prompt=None):
     """Formats the input text and annotation using the provided instruction prompt."""
     if prompt:
         full_text = prompt(data['text'], data['annotated_text'])
-        formatted_text = tokenizer.apply_chat_template(full_text, tokenize=False, add_generation_prompt=False)
+        # The chat template already starts with <|begin_of_text|>; SFTTrainer adds another when it tokenizes.
+        formatted_text = tokenizer.apply_chat_template(
+            full_text, tokenize=False, add_generation_prompt=False).removeprefix(tokenizer.bos_token)
     else:
         full_text = "### Input:" + data['text'] + " ### Output:" + data['annotated_text']
         formatted_text = full_text

@@ -1,6 +1,6 @@
 """Core data preparation functions for LMLM training."""
 from datasets import load_dataset
-from .utils import truncate_sample_length, add_shared_context_ids
+from .utils import add_shared_context_ids
 from typing import List, Tuple, Callable, Dict
 
 # Global registry for dataset loaders
@@ -59,7 +59,6 @@ def prepare_dwiki(split: str = "train", subset_ids: List[str] = None, **kwargs) 
     dataset = load_dataset("allenai/dolmino-mix-1124", "wiki", split=split)
     if subset_ids:
         dataset = dataset.filter(lambda ex: ex["id"] in set(subset_ids))
-    dataset = dataset.map(truncate_sample_length)
     texts = [ex["text"] for ex in dataset]
     ids = [ex["id"] for ex in dataset]
     return texts, ids

@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 from vllm.lora.request import LoRARequest
 
-from lmlm.annotate.utils import truncate_prompt
+from lmlm.annotate.context_budget import budget_prompts, measure_max_model_len
 
 
 class Prompt:
@@ -83,29 +83,31 @@ class LlamaAnnotator(Annotator):
     def __init__(self, model_id, prompt_id, config_file):
         super().__init__(model_id, prompt_id, config_file)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
-        self.llm = LLM(model=self.model_id, **self.configs['llm'])
-        self.sampling_params = SamplingParams(**self.configs['sampling'])
+        self.max_model_len = measure_max_model_len(self.model_id, self.configs['llm'])
+        self.llm = LLM(model=self.model_id, max_model_len=self.max_model_len, **self.configs['llm'])
+        self.dropped = []  # texts skipped by the last annotate() call
 
     def annotate(self, texts):
-        prompts = [
-            self.tokenizer.apply_chat_template(
-                self.prompt(text),
-                tokenize=False,
-                add_generation_prompt=True,
-                truncation=True,
-                max_length=1024
-            ) for text in texts
-        ]
+        """One annotation per text; None where the text was dropped (reason recorded in self.dropped)."""
+        kept, self.dropped = budget_prompts(texts, self.tokenizer, self.prompt, self.max_model_len)
+        params = [SamplingParams(**{**self.configs['sampling'], "max_tokens": max_tokens}) for _, _, max_tokens in kept]
 
-        prompts = [truncate_prompt(p, max_tokens=1024, tokenizer=self.tokenizer) for p in prompts]
-        
         try:
-            responses = self.llm.generate(prompts, self.sampling_params)
-            annotated_texts = list(map(lambda x: x.outputs[0].text, responses))
-            return annotated_texts
+            responses = self.llm.generate([p for _, p, _ in kept], params)
         except Exception as e:
             print(f"Error occurred: {e}")
             return []
+
+        annotated_texts = [None] * len(texts)
+        for (i, _, _), response in zip(kept, responses):
+            output = response.outputs[0]
+            if output.finish_reason == "length":
+                # The output reached max_model_len; keep no partial annotation.
+                self.dropped.append({"index": i, "tokens_needed": None, "max_model_len": self.max_model_len,
+                                     "reason": "output reached max_model_len"})
+            else:
+                annotated_texts[i] = output.text
+        return annotated_texts
 
     
 class LlamaLoraAnnotator(Annotator):
@@ -123,7 +125,8 @@ class LlamaLoraAnnotator(Annotator):
                     self.prompt(text),
                     tokenize=False,
                     add_generation_prompt=True
-                ) for text in texts
+                ).removeprefix(self.tokenizer.bos_token)  # vLLM adds <|begin_of_text|> when it encodes the string
+                for text in texts
             ]
         responses = self.llm.generate(prompts, self.sampling_params, lora_request=LoRARequest("lora_adapter", 1, self.model_id), use_tqdm=True)
         annotated_texts = list(map(lambda x: x.outputs[0].text, responses))
