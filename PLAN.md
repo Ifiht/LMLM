@@ -16,51 +16,38 @@ LMLM-2026 — Limited Memory Language Model, full pipeline rebuilt on enwiki-202
     M5-M8           NOT STARTED  annotation, database, pretraining, evaluation
 
 ### CRITICAL PATH
-    M1  Load the annotator from local weights instead of HF.          <1h
-        1. EDIT scripts/annotate/annotate_annotator.sh:5
-           MODEL_ID=../weights/LMLM-Annotator
-        Exit: model loads from local path.
+    M1  COMPLETE  scripts/annotate/annotate_annotator.sh loads the annotator
+        from ../weights/LMLM-Annotator.
 
-    M2  Prove our annotator reproduces the authors' annotations,        1d
-        and measure its speed.
-        Reference: data/dwiki-eval1k_annotator_llama-v6.1_cleaned.json
-        (830 docs; original `text` + their `annotated_text`).
-        1. EDIT src/lmlm/annotate/dataloader.py
-           add loader that reads `text` from the reference file
-        2. RUN python -m lmlm.annotate.annotate (bf16, then fp8)
-           -> output/annotation/
-        3. CREATE_FILE experiment/annotate/compare_annotations.py
-           per doc: dblookup count, verbatim-copy check; tokens/sec
-        4. RUN experiment/annotate/compare_annotations.py
-        Exit: dblookup call rate and verbatim-copy fidelity match the
-        reference; tokens/sec measured for bf16 and fp8.
+    M2  COMPLETE  The bf16 annotator reproduces the authors' dwiki-eval1k
+        annotations without truncation (experiment/annotate/compare_annotations.py,
+        run bf16-y).
 
-    M3  Split every article into plain-text chunks along its own     2-3d
-        section structure, sized to fit one annotator call; set aside
+    M3  Fetch the rendered HTML of every article revision in the      4wk
+        20260901 stub, split each article into plain-text chunks along its
+        own section structure, sized to fit one annotator call; set aside
         held-out eval articles.
-        1. CREATE_FILE sources/wiki_to_jsonl.py
-           Purpose: turn the raw dump into annotator input chunks that
-           follow article structure instead of truncating articles.
-           Function: stream data/raw/enwiki-20260901/*.bz2 (articles only,
-           redirects skipped); parse wikitext with mwparserfromhell; split
-           at section headings (get_sections); merge adjacent small
-           sections up to the chunk token limit; split oversize sections
-           at paragraph, then sentence boundaries; strip markup to plain
-           text; prefix every chunk with the article title ("Title\n\nBody",
-           dolmino format); measure sizes with the annotator tokenizer.
-           Writes {id: "<page_id>_chunk<n>", text} rows to
-           data/raw/enwiki-20260901.jsonl and held-out article ids (all
-           chunks of an article on one side) to
-           data/ids/enwiki-heldout-ids.json. Assert self-check: no chunk
-           exceeds the limit; chunks of an article reassemble its full text.
-           Chunk token limit derives from max_model_len (proposal pending).
-        2. RUN python sources/wiki_to_jsonl.py
-        3. EDIT src/lmlm/annotate/dataloader.py
+        1. RUN WIKIMEDIA_CONTACT=<email or URL> python sources/fetch_wiki_html.py
+           reads data/raw/enwiki-20260901-stub-articles.xml.gz; writes
+           data/raw/enwiki-20260901-html.sqlite; resumable; ~24 days at
+           200 requests/min
+        2. EDIT sources/wiki_to_jsonl.py
+           iter_articles(): read (page_id, html) rows with status 200 from
+           data/raw/enwiki-20260901-html.sqlite.
+           sections(): split the HTML at its <section> elements; drop
+           headings, reference lists, infoboxes, tables, navboxes, and
+           appendix sections; return plain-text paragraphs per section.
+           Chunking, budget check, drop log, and held-out split unchanged.
+           tests/test_wiki_to_jsonl.py: sample input becomes HTML.
+        3. RUN python sources/wiki_to_jsonl.py
+           writes data/raw/enwiki-20260901.jsonl,
+           data/raw/enwiki-20260901.dropped.jsonl,
+           data/ids/enwiki-heldout-ids.json
+        4. EDIT src/lmlm/annotate/dataloader.py
            register an "enwiki" loader that reads
-           data/raw/enwiki-20260901.jsonl into (texts, ids), without
-           truncate_sample_length
-        Exit: no chunk over the limit; spot-checked splits fall on section
-        or paragraph boundaries; chunk format matches dolmino side by side.
+           data/raw/enwiki-20260901.jsonl into (texts, ids)
+        Exit: no chunk over the limit; spot-checked chunks read as the
+        rendered article text, split at section or paragraph boundaries.
 
     M4  Annotate 1k of our docs and confirm quality holds.              1d
         1. CREATE_FILE data/ids/enwiki-pilot1k-ids.json

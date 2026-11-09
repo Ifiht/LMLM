@@ -68,6 +68,13 @@ def test_prompts_are_whole_with_one_bos():
         assert max_tokens == MAX_MODEL_LEN_CEILING - len(ids)
 
 
+def test_prompt_inserts_text_verbatim():
+    text = r"The ratio \frac{a}{b} uses \alpha and \n"  # re.sub turned these into form feed, bell, newline
+    filled = PROMPT(text)
+    assert sum(text in m["content"] for m in filled) == 1
+    assert [m["content"].replace(text, "[INSERT_TEXT]") for m in filled] == [m["content"] for m in PROMPT.prompt]
+
+
 def test_oversize_texts_are_dropped_not_shortened():
     kept, dropped = budget_prompts([SHORT, LONG], TOKENIZER, PROMPT, LIMIT)
     assert [i for i, _, _ in kept] == [0] and SHORT.strip() in kept[0][1]

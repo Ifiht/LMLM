@@ -1,6 +1,5 @@
 import json
 import os
-import re
 from openai import OpenAI
 
 from copy import deepcopy
@@ -33,15 +32,8 @@ class Prompt:
         """
         filled_prompt = deepcopy(self.prompt)
         for prompt_dict in filled_prompt:
-            try:
-                prompt_dict['content'] = re.sub(
-                    r'\[INSERT_TEXT\]',
-                    text,  # Remove the lambda function - it's unnecessary here
-                    prompt_dict['content']
-                )
-            except re.error as e:
-                if 'INSERT_TEXT' in filled_prompt[-1]['content']:
-                    filled_prompt[-1]['content'] = text
+            # str.replace inserts the text verbatim; re.sub read its backslashes as escapes.
+            prompt_dict['content'] = prompt_dict['content'].replace("[INSERT_TEXT]", text)
         return filled_prompt
 
 class Annotator:
